@@ -541,8 +541,9 @@
       if (syncTimer) clearInterval(syncTimer);
       updateSyncStatus('connecting', '连接中...');
       syncTimer = setInterval(() => {
+        // 如果当前本地正在通过表单提交或修改数据，则跳过本次云端拉取，防止光标被刷新打断
         if (!isLocalUpdating) pullFromCloud();
-      }, 3000);
+      }, 1000); // 💡 缩短为 1000 毫秒（1秒同步一次）
     }
 
     function updateSyncStatus(type, msg) {
