@@ -480,27 +480,50 @@
   </div>
 
   <script>
-    // 已正确关联你的 Cloudflare Worker 地址
+    // 采用 Git + Pages Functions 混合架构（如走 Pages 内置 API 填写 '/api'；如走独立 Worker 填写 'https://dota-api.niubi1597gepizycom.workers.dev'）
     const API_URL = '/api';
 
     const ANIMAL_NAMES = ['猛玛战队', '灵猴战队', '巨龙战队', '猎鹰战队', '夜狼战队', '冰熊战队', '狂鲨战队', '狮王战队', '雷虎战队', '火凤战队'];
 
-    let store = {
+    // 全局默认数据保护对象
+    const DEFAULT_STORE = {
       players: [],
       teams: [],
       bracket4: { t: ['战队1','战队2','战队3','战队4'], m1:[0,0], m2:[0,0], f:[0,0] },
       match6: { t: ['队伍1','队伍2','队伍3','队伍4','队伍5','队伍6'], s1:[0,0], s2:[0,0], s3:[0,0] }
     };
 
+    let store = JSON.parse(JSON.stringify(DEFAULT_STORE));
+
     let syncTimer = null;
     let isLocalUpdating = false;
     let championAlerted = false;
 
     window.onload = () => {
+      ensureStoreIntegrity();
       renderAll();
       startAutoSync();
       pullFromCloud();
     };
+
+    // 🛡️ 防御性数据补全函数：防止云端拉回旧的/残缺的数据结构导致 JS 崩溃
+    function ensureStoreIntegrity() {
+      if (!store) store = JSON.parse(JSON.stringify(DEFAULT_STORE));
+      if (!Array.isArray(store.players)) store.players = [];
+      if (!Array.isArray(store.teams)) store.teams = [];
+      
+      if (!store.bracket4) store.bracket4 = JSON.parse(JSON.stringify(DEFAULT_STORE.bracket4));
+      if (!Array.isArray(store.bracket4.t)) store.bracket4.t = ['战队1','战队2','战队3','战队4'];
+      if (!Array.isArray(store.bracket4.m1)) store.bracket4.m1 = [0,0];
+      if (!Array.isArray(store.bracket4.m2)) store.bracket4.m2 = [0,0];
+      if (!Array.isArray(store.bracket4.f)) store.bracket4.f = [0,0];
+
+      if (!store.match6) store.match6 = JSON.parse(JSON.stringify(DEFAULT_STORE.match6));
+      if (!Array.isArray(store.match6.t)) store.match6.t = ['队伍1','队伍2','队伍3','队伍4','队伍5','队伍6'];
+      if (!Array.isArray(store.match6.s1)) store.match6.s1 = [0,0];
+      if (!Array.isArray(store.match6.s2)) store.match6.s2 = [0,0];
+      if (!Array.isArray(store.match6.s3)) store.match6.s3 = [0,0];
+    }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -564,10 +587,10 @@
         const res = await fetch(API_URL);
         if (res.ok) {
           const cloudData = await res.json();
-          // 加固保护：只有当云端有有效数据结构时，才做比对和更新，防止空数据覆盖本地
-          if (cloudData && typeof cloudData === 'object' && cloudData.players) {
+          if (cloudData && typeof cloudData === 'object') {
             if (JSON.stringify(store) !== JSON.stringify(cloudData)) {
               store = cloudData;
+              ensureStoreIntegrity();
               renderAll();
             }
             updateSyncStatus('online', '已实时同步 (KV)');
@@ -580,6 +603,8 @@
 
     function handleRegister(e) {
       e.preventDefault();
+      ensureStoreIntegrity();
+
       const name = document.getElementById('reg-name').value.trim();
       const id = document.getElementById('reg-id').value.trim();
       const mmr = parseInt(document.getElementById('reg-mmr').value);
@@ -596,6 +621,7 @@
     }
 
     function deletePlayer(id) {
+      ensureStoreIntegrity();
       store.players = store.players.filter(p => p.id !== id);
       renderAll();
       pushToCloud();
@@ -603,6 +629,7 @@
 
     function resetRegisterData() {
       if (confirm('确定要清空所有已报名的选手数据吗？')) {
+        ensureStoreIntegrity();
         store.players = [];
         renderAll();
         pushToCloud();
@@ -611,7 +638,8 @@
 
     function resetBracket4Data() {
       if (confirm('确定要重置 4 强淘汰赛的所有对阵和比分吗？')) {
-        store.bracket4 = { t: ['战队1','战队2','战队3','战队4'], m1:[0,0], m2:[0,0], f:[0,0] };
+        ensureStoreIntegrity();
+        store.bracket4 = JSON.parse(JSON.stringify(DEFAULT_STORE.bracket4));
         championAlerted = false;
         renderAll();
         pushToCloud();
@@ -620,13 +648,15 @@
 
     function resetMatch6Data() {
       if (confirm('确定要重置 6 队对决的所有比分吗？')) {
-        store.match6 = { t: ['队伍1','队伍2','队伍3','队伍4','队伍5','队伍6'], s1:[0,0], s2:[0,0], s3:[0,0] };
+        ensureStoreIntegrity();
+        store.match6 = JSON.parse(JSON.stringify(DEFAULT_STORE.match6));
         renderAll();
         pushToCloud();
       }
     }
 
     function generateMatchmaking() {
+      ensureStoreIntegrity();
       const count = parseInt(document.getElementById('match-team-count').value);
       const mode = document.getElementById('team-mode').value;
       const needed = count * 5;
@@ -690,6 +720,7 @@
 
     function clearTeams() {
       if (confirm('确定要解散所有已生成的战队吗？')) {
+        ensureStoreIntegrity();
         store.teams = [];
         store.players.forEach(p => p.inTeam = false);
         renderAll();
@@ -698,6 +729,7 @@
     }
 
     function renderAll() {
+      ensureStoreIntegrity();
       renderPlayers();
       renderTeams();
       renderBracket4();
@@ -794,6 +826,7 @@
     }
 
     function syncTeamsToBracket4() {
+      ensureStoreIntegrity();
       if (store.teams.length < 4) return alert('需要先在组队页面匹配出至少 4 支队伍！');
       store.bracket4.t = store.teams.slice(0, 4).map(t => t.name);
       championAlerted = false;
@@ -810,6 +843,7 @@
     }
 
     function updateBracket4() {
+      ensureStoreIntegrity();
       store.bracket4.m1 = validateBO3Scores(document.getElementById('b4-m1-s1').value, document.getElementById('b4-m1-s2').value);
       store.bracket4.m2 = validateBO3Scores(document.getElementById('b4-m2-s1').value, document.getElementById('b4-m2-s2').value);
       store.bracket4.f = validateBO3Scores(document.getElementById('b4-f-s1').value, document.getElementById('b4-f-s2').value);
@@ -824,6 +858,7 @@
     }
 
     function renderBracket4() {
+      ensureStoreIntegrity();
       const b = store.bracket4;
 
       const inputM1S1 = document.getElementById('b4-m1-s1');
@@ -832,6 +867,8 @@
       const inputM2S2 = document.getElementById('b4-m2-s2');
       const inputFS1 = document.getElementById('b4-f-s1');
       const inputFS2 = document.getElementById('b4-f-s2');
+
+      if (!inputM1S1) return;
 
       inputM1S1.value = b.m1[0];
       inputM1S2.value = b.m1[1];
@@ -847,10 +884,10 @@
       inputFS1.disabled = (b.f[0] >= 2 || b.f[1] >= 2);
       inputFS2.disabled = (b.f[0] >= 2 || b.f[1] >= 2);
 
-      document.getElementById('b4-t1-name').innerText = b.t[0];
-      document.getElementById('b4-t2-name').innerText = b.t[1];
-      document.getElementById('b4-t3-name').innerText = b.t[2];
-      document.getElementById('b4-t4-name').innerText = b.t[3];
+      document.getElementById('b4-t1-name').innerText = b.t[0] || '战队1';
+      document.getElementById('b4-t2-name').innerText = b.t[1] || '战队2';
+      document.getElementById('b4-t3-name').innerText = b.t[2] || '战队3';
+      document.getElementById('b4-t4-name').innerText = b.t[3] || '战队4';
 
       document.getElementById('b4-t1-dots').innerText = getDots(b.m1[0]);
       document.getElementById('b4-t2-dots').innerText = getDots(b.m1[1]);
@@ -905,6 +942,7 @@
     }
 
     function syncTeamsToMatch6() {
+      ensureStoreIntegrity();
       if (store.teams.length < 6) return alert('需要先在组队页面匹配出 6 支队伍！');
       store.match6.t = store.teams.slice(0, 6).map(t => t.name);
       renderMatch6();
@@ -912,6 +950,7 @@
     }
 
     function updateMatch6() {
+      ensureStoreIntegrity();
       store.match6.s1 = validateBO3Scores(document.getElementById('m6-s1-1').value, document.getElementById('m6-s1-2').value);
       store.match6.s2 = validateBO3Scores(document.getElementById('m6-s2-1').value, document.getElementById('m6-s2-2').value);
       store.match6.s3 = validateBO3Scores(document.getElementById('m6-s3-1').value, document.getElementById('m6-s3-2').value);
@@ -920,6 +959,7 @@
     }
 
     function renderMatch6() {
+      ensureStoreIntegrity();
       const m = store.match6;
 
       const inputS1_1 = document.getElementById('m6-s1-1');
@@ -928,6 +968,8 @@
       const inputS2_2 = document.getElementById('m6-s2-2');
       const inputS3_1 = document.getElementById('m6-s3-1');
       const inputS3_2 = document.getElementById('m6-s3-2');
+
+      if (!inputS1_1) return;
 
       inputS1_1.value = m.s1[0];
       inputS1_2.value = m.s1[1];
@@ -943,12 +985,12 @@
       inputS3_1.disabled = (m.s3[0] >= 2 || m.s3[1] >= 2);
       inputS3_2.disabled = (m.s3[0] >= 2 || m.s3[1] >= 2);
 
-      document.getElementById('m6-t1').innerText = m.t[0];
-      document.getElementById('m6-t2').innerText = m.t[1];
-      document.getElementById('m6-t3').innerText = m.t[2];
-      document.getElementById('m6-t4').innerText = m.t[3];
-      document.getElementById('m6-t5').innerText = m.t[4];
-      document.getElementById('m6-t6').innerText = m.t[5];
+      document.getElementById('m6-t1').innerText = m.t[0] || '队伍1';
+      document.getElementById('m6-t2').innerText = m.t[1] || '队伍2';
+      document.getElementById('m6-t3').innerText = m.t[2] || '队伍3';
+      document.getElementById('m6-t4').innerText = m.t[3] || '队伍4';
+      document.getElementById('m6-t5').innerText = m.t[4] || '队伍5';
+      document.getElementById('m6-t6').innerText = m.t[5] || '队伍6';
 
       document.getElementById('m6-t1-dots').innerText = getDots(m.s1[0]);
       document.getElementById('m6-t2-dots').innerText = getDots(m.s1[1]);
