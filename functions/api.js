@@ -1,47 +1,43 @@
-export async function onRequest(context) {
-  const { request, env } = context;
-  
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
 
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+    // 允许跨域的 Header
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
 
-  const KV = env.DOTA_KV;
-  if (!KV) {
-    return new Response(JSON.stringify({ error: "KV 'DOTA_KV' not bound to Pages!" }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
+    // 处理浏览器的 OPTIONS 预检请求
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
 
-  const KEY_NAME = 'game_data';
+    try {
+      // 假设你用的是 KV 存储，key 叫 'DOTA_STORE'
+      if (request.method === 'GET') {
+        let data = await env.DOTA_KV.get('DOTA_STORE');
+        let body = data ? data : JSON.stringify({ players: [], teams: [], bracket4: null, match6: null });
+        return new Response(body, {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-  try {
-    if (request.method === 'GET') {
-      let data = await KV.get(KEY_NAME);
-      return new Response(data || JSON.stringify({ players: [], teams: [] }), {
+      if (request.method === 'PUT') {
+        let reqBody = await request.text();
+        await env.DOTA_KV.put('DOTA_STORE', reqBody);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      return new Response('Not Found', { status: 404, headers: corsHeaders });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    if (request.method === 'PUT') {
-      let bodyText = await request.text();
-      await KV.put(KEY_NAME, bodyText);
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    return new Response('Method not allowed', { status: 405, headers: corsHeaders });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
   }
-}
+};
