@@ -45,7 +45,6 @@
       color: #34d399;
       animation: pulse 1.5s infinite;
     }
-    /* 居中模态弹窗遮罩 */
     .modal-backdrop {
       background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(4px);
@@ -79,6 +78,29 @@
     </div>
   </div>
 
+  <!-- ➕ 手动添加队员弹窗 -->
+  <div id="add-player-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="dota-card rounded-xl p-5 max-w-md w-full border border-amber-500/40 shadow-2xl relative space-y-4">
+      <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+        <h3 id="modal-add-title" class="text-sm font-bold text-amber-400 flex items-center gap-2">
+          <i class="fa-solid fa-user-plus"></i> 为战队添加队员
+        </h3>
+        <button onclick="closeAddPlayerModal()" class="text-gray-400 hover:text-white text-base w-7 h-7 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="text-[11px] text-gray-400">选择要手动编入该战队的自由选手（手动编入后将锁定，不会被智能匹配覆盖）：</p>
+      
+      <div id="modal-free-players-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+        <!-- 动态渲染自由人列表 -->
+      </div>
+
+      <button onclick="closeAddPlayerModal()" class="w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold transition">
+        关闭
+      </button>
+    </div>
+  </div>
+
   <div class="max-w-7xl mx-auto space-y-4">
 
     <!-- 顶部页头 -->
@@ -89,17 +111,23 @@
           <i class="fa-solid fa-swords text-red-500"></i>
           DOTA 2 赛事管理系统
         </h1>
-        <p class="text-xs text-gray-400 mt-1">云端秒级同步 | 仅弹窗提示总冠军 | 严格相近分段聚集组队</p>
+        <p class="text-xs text-gray-400 mt-1">极速秒级云同步 | 严格上限100人 | 支持战队手动添加/移除队员</p>
       </div>
 
-      <!-- 云端状态 -->
-      <div class="w-full md:w-auto bg-gray-900/90 p-2.5 rounded-lg border border-gray-800 flex items-center justify-between gap-4 text-xs">
-        <div class="flex items-center gap-2">
-          <span id="sync-status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block animate-pulse"></span>
-          <span id="sync-status-text" class="text-gray-300 font-semibold">连接中...</span>
+      <!-- 云端状态与总人数上限指示 -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="bg-red-950/80 border border-red-800/60 px-3 py-2 rounded-lg text-xs font-bold text-red-300 flex items-center gap-2">
+          <i class="fa-solid fa-users-line"></i> 报名容量: <span id="header-capacity" class="text-white font-mono">0 / 100 人上限</span>
         </div>
-        <div class="text-gray-400 text-[11px]">
-          上次同步: <span id="last-sync-time">--:--</span>
+
+        <div class="bg-gray-900/90 p-2.5 rounded-lg border border-gray-800 flex items-center gap-4 text-xs">
+          <div class="flex items-center gap-2">
+            <span id="sync-status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block animate-pulse"></span>
+            <span id="sync-status-text" class="text-gray-300 font-semibold">连接中...</span>
+          </div>
+          <div class="text-gray-400 text-[11px]">
+            上次同步: <span id="last-sync-time">--:--</span>
+          </div>
         </div>
       </div>
     </div>
@@ -131,7 +159,7 @@
           <h2 class="text-base font-bold text-red-400 flex items-center gap-2">
             <i class="fa-solid fa-id-card"></i> 选手报名表单
           </h2>
-          <span class="text-[11px] text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-cloud"></i> 自动实时同步</span>
+          <span class="text-[11px] text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-cloud"></i> 自动极速同步</span>
         </div>
 
         <form id="reg-form" onsubmit="handleRegister(event)" class="space-y-3 text-xs">
@@ -166,19 +194,28 @@
       </div>
 
       <div class="lg:col-span-2 dota-card rounded-xl p-5 shadow-lg space-y-4">
-        <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+        <div class="flex flex-wrap justify-between items-center gap-3 border-b border-gray-800 pb-2">
           <h2 class="text-base font-bold text-red-400 flex items-center gap-2">
-            <i class="fa-solid fa-users"></i> 已报名选手大池 (按MMR从高到低排序)
-            <span id="player-total-count" class="bg-red-950 text-red-400 border border-red-800 px-2.5 py-0.5 rounded-full text-xs font-bold ml-2">0 人</span>
+            <i class="fa-solid fa-users"></i> 已报名选手大池 (按MMR从高到低)
+            <span id="player-total-count" class="bg-red-950 text-red-400 border border-red-800 px-2.5 py-0.5 rounded-full text-xs font-bold ml-1">0 人</span>
           </h2>
-          <button onclick="resetRegisterData()" class="text-xs bg-red-950/60 border border-red-800 text-red-400 hover:bg-red-900 px-2.5 py-1 rounded font-bold transition">
-            <i class="fa-solid fa-rotate-right mr-1"></i>重置报名数据
-          </button>
+
+          <div class="flex items-center gap-2">
+            <!-- 🔍 实时搜索框 -->
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-500">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+              </span>
+              <input type="text" id="search-player-input" oninput="renderPlayers()" placeholder="搜索昵称或数字ID..." class="bg-gray-950 border border-gray-800 rounded pl-8 pr-3 py-1 text-xs text-white focus:border-red-500 outline-none w-44">
+            </div>
+
+            <button onclick="resetRegisterData()" class="text-xs bg-red-950/60 border border-red-800 text-red-400 hover:bg-red-900 px-2.5 py-1 rounded font-bold transition">
+              <i class="fa-solid fa-rotate-right mr-1"></i>重置
+            </button>
+          </div>
         </div>
         
-        <div id="player-list" class="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto pr-1">
-          <!-- 动态单行选手卡片 -->
-        </div>
+        <div id="player-list" class="flex flex-col gap-2.5 max-h-[460px] overflow-y-auto pr-1"></div>
       </div>
     </div>
 
@@ -189,12 +226,12 @@
           <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
             <i class="fa-solid fa-wand-magic-sparkles"></i> 智能战队分流匹配
           </h2>
-          <p class="text-xs text-gray-400">严格模式（高分与高分聚在同队，防止大分差） / 综合模式（全局平分）</p>
+          <p class="text-xs text-gray-400">已组队选手自动过滤。每个战队可点击“➕ 添加”手动编入，点击“移除”释放回自由池。</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
           <select id="team-mode" class="bg-gray-950 border border-gray-800 text-xs rounded px-3 py-2 text-amber-300 font-semibold outline-none">
-            <option value="tier">模式B：严格分数线段组队 (高分归高分队，防止差距过大)</option>
+            <option value="tier">模式B：严格分数线段组队 (高分聚同队，防大分差)</option>
             <option value="balance">模式A：综合天梯平分组队 (全分段平均拖平)</option>
           </select>
 
@@ -207,14 +244,12 @@
             一键智能匹配
           </button>
           <button onclick="clearTeams()" class="bg-red-950 hover:bg-red-900 border border-red-800 text-red-400 text-xs px-3 py-2 rounded font-bold transition">
-            <i class="fa-solid fa-rotate-right mr-1"></i>重置组队
+            <i class="fa-solid fa-rotate-right mr-1"></i>解散全部战队
           </button>
         </div>
       </div>
 
-      <div id="teams-container" class="grid grid-cols-1 md:grid-cols-2 gap-5 min-h-[300px]">
-        <!-- 动态战队列表 -->
-      </div>
+      <div id="teams-container" class="grid grid-cols-1 md:grid-cols-2 gap-5 min-h-[300px]"></div>
     </div>
 
     <!-- 页面 3: 4强淘汰赛 (BO3) -->
@@ -480,12 +515,10 @@
   </div>
 
   <script>
-    // 采用 Git + Pages Functions 混合架构（如走 Pages 内置 API 填写 '/api'；如走独立 Worker 填写 'https://dota-api.niubi1597gepizycom.workers.dev'）
-    const API_URL = '/api';
+    const API_URL = 'https://dota-api.niubi1597gepizycom.workers.dev';
 
     const ANIMAL_NAMES = ['猛玛战队', '灵猴战队', '巨龙战队', '猎鹰战队', '夜狼战队', '冰熊战队', '狂鲨战队', '狮王战队', '雷虎战队', '火凤战队'];
 
-    // 全局默认数据保护对象
     const DEFAULT_STORE = {
       players: [],
       teams: [],
@@ -498,6 +531,7 @@
     let syncTimer = null;
     let isLocalUpdating = false;
     let championAlerted = false;
+    let currentAddingTeamId = null; // 当前正在添加队员的战队ID
 
     window.onload = () => {
       ensureStoreIntegrity();
@@ -506,7 +540,6 @@
       pullFromCloud();
     };
 
-    // 🛡️ 防御性数据补全函数：防止云端拉回旧的/残缺的数据结构导致 JS 崩溃
     function ensureStoreIntegrity() {
       if (!store) store = JSON.parse(JSON.stringify(DEFAULT_STORE));
       if (!Array.isArray(store.players)) store.players = [];
@@ -541,9 +574,8 @@
       if (syncTimer) clearInterval(syncTimer);
       updateSyncStatus('connecting', '连接中...');
       syncTimer = setInterval(() => {
-        // 如果当前本地正在通过表单提交或修改数据，则跳过本次云端拉取，防止光标被刷新打断
         if (!isLocalUpdating) pullFromCloud();
-      }, 1000); // 💡 缩短为 1000 毫秒（1秒同步一次）
+      }, 1000);
     }
 
     function updateSyncStatus(type, msg) {
@@ -566,9 +598,7 @@
       try {
         const res = await fetch(API_URL, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(store)
         });
         if (res.ok) {
@@ -602,9 +632,18 @@
       }
     }
 
+    async function syncAndPull() {
+      await pushToCloud();
+      setTimeout(pullFromCloud, 150);
+    }
+
     function handleRegister(e) {
       e.preventDefault();
       ensureStoreIntegrity();
+
+      if (store.players.length >= 100) {
+        return alert('⚠️ 赛事报名人数已满 100 人上限，无法继续添加！');
+      }
 
       const name = document.getElementById('reg-name').value.trim();
       const id = document.getElementById('reg-id').value.trim();
@@ -618,22 +657,26 @@
       store.players.push({ name, id, mmr, pos, inTeam: false });
       document.getElementById('reg-form').reset();
       renderAll();
-      pushToCloud();
+      syncAndPull();
     }
 
     function deletePlayer(id) {
       ensureStoreIntegrity();
+      store.teams.forEach(t => {
+        t.members = t.members.filter(m => m.id !== id);
+      });
       store.players = store.players.filter(p => p.id !== id);
       renderAll();
-      pushToCloud();
+      syncAndPull();
     }
 
     function resetRegisterData() {
-      if (confirm('确定要清空所有已报名的选手数据吗？')) {
+      if (confirm('确定要清空所有已报名的选手数据与组队信息吗？')) {
         ensureStoreIntegrity();
         store.players = [];
+        store.teams = [];
         renderAll();
-        pushToCloud();
+        syncAndPull();
       }
     }
 
@@ -643,7 +686,7 @@
         store.bracket4 = JSON.parse(JSON.stringify(DEFAULT_STORE.bracket4));
         championAlerted = false;
         renderAll();
-        pushToCloud();
+        syncAndPull();
       }
     }
 
@@ -652,7 +695,7 @@
         ensureStoreIntegrity();
         store.match6 = JSON.parse(JSON.stringify(DEFAULT_STORE.match6));
         renderAll();
-        pushToCloud();
+        syncAndPull();
       }
     }
 
@@ -661,11 +704,13 @@
       const count = parseInt(document.getElementById('match-team-count').value);
       const mode = document.getElementById('team-mode').value;
       const needed = count * 5;
-      if (store.players.length < needed) {
-        return alert(`生成 ${count} 支队伍需要 ${needed} 人，当前仅有 ${store.players.length} 人报名！`);
+
+      // 智能匹配仅挑选当前没有被编入任何战队的自由选手
+      let freePlayers = store.players.filter(p => !p.inTeam);
+      if (freePlayers.length < needed) {
+        return alert(`生成 ${count} 支队伍需要 ${needed} 位【未组队】自由选手，当前自由池仅剩 ${freePlayers.length} 人！`);
       }
 
-      store.players.forEach(p => p.inTeam = false);
       let shuffledAnimals = [...ANIMAL_NAMES].sort(() => 0.5 - Math.random());
 
       let teams = Array.from({ length: count }, (_, i) => ({
@@ -674,7 +719,7 @@
         members: []
       }));
 
-      let sortedPool = [...store.players].sort((a, b) => b.mmr - a.mmr);
+      let sortedPool = [...freePlayers].sort((a, b) => b.mmr - a.mmr);
 
       if (mode === 'tier') {
         teams.forEach((t, tIdx) => {
@@ -707,25 +752,108 @@
       }
 
       store.teams = teams;
-      store.teams.forEach(t => {
-        t.members.forEach(m => {
-          let realP = store.players.find(x => x.id === m.id);
-          if(realP) realP.inTeam = true;
-        });
+      
+      // 更新全体选手的 inTeam 状态
+      store.players.forEach(p => {
+        let isAssigned = store.teams.some(t => t.members.some(m => m.id === p.id));
+        p.inTeam = isAssigned;
       });
 
       renderAll();
-      pushToCloud();
+      syncAndPull();
       alert('✅ 智能战队分流匹配成功！');
     }
 
+    // 🛠️ 从战队中移除队员
+    function removePlayerFromTeam(teamId, playerId) {
+      ensureStoreIntegrity();
+      let team = store.teams.find(t => t.id === teamId);
+      if (team) {
+        team.members = team.members.filter(m => m.id !== playerId);
+      }
+      let player = store.players.find(p => p.id === playerId);
+      if (player) {
+        player.inTeam = false; // 释放回自由池
+      }
+      renderAll();
+      syncAndPull();
+    }
+
+    // ➕ 打开手动添加队员弹窗
+    function openAddPlayerModal(teamId) {
+      ensureStoreIntegrity();
+      currentAddingTeamId = teamId;
+      const team = store.teams.find(t => t.id === teamId);
+      if (!team) return;
+
+      document.getElementById('modal-add-title').innerHTML = `<i class="fa-solid fa-user-plus text-amber-400"></i> 为 [${team.name}] 添加队员`;
+      renderModalFreePlayers();
+      document.getElementById('add-player-modal').classList.remove('hidden');
+    }
+
+    // 关闭手动添加队员弹窗
+    function closeAddPlayerModal() {
+      document.getElementById('add-player-modal').classList.add('hidden');
+      currentAddingTeamId = null;
+    }
+
+    // 渲染弹窗里的可用自由人列表
+    function renderModalFreePlayers() {
+      const container = document.getElementById('modal-free-players-list');
+      container.innerHTML = '';
+
+      // 仅挑选尚未组队的选手
+      const freePlayers = store.players.filter(p => !p.inTeam);
+
+      if (freePlayers.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-6">当前没有可供添加的自由选手（所有人都已加入战队）</p>`;
+        return;
+      }
+
+      freePlayers.forEach(p => {
+        const div = document.createElement('div');
+        div.className = "bg-gray-950 border border-gray-800 p-2.5 rounded-lg flex items-center justify-between hover:border-amber-500/50 transition text-xs";
+        div.innerHTML = `
+          <div>
+            <strong class="text-white">${p.name}</strong> 
+            <span class="text-red-400 font-mono ml-1">(${p.mmr}分)</span>
+            <span class="text-amber-400 ml-2">${p.pos}号位</span>
+          </div>
+          <button onclick="addPlayerToTeam('${p.id}')" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1 rounded font-bold shadow transition">
+            加入战队
+          </button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // 🎯 将自由人手动添加进指定战队
+    function addPlayerToTeam(playerId) {
+      ensureStoreIntegrity();
+      const team = store.teams.find(t => t.id === currentAddingTeamId);
+      const player = store.players.find(p => p.id === playerId);
+
+      if (!team || !player) return;
+      if (team.members.length >= 5) {
+        return alert('⚠️ 该战队人数已达 5 人上限！');
+      }
+
+      // 标记为已组队，并加入战队
+      player.inTeam = true;
+      team.members.push({ ...player, assignedPos: player.pos || 1 });
+
+      renderAll();
+      renderModalFreePlayers(); // 刷新弹窗列表
+      syncAndPull();
+    }
+
     function clearTeams() {
-      if (confirm('确定要解散所有已生成的战队吗？')) {
+      if (confirm('确定要解散所有已生成的战队吗？所有队员将重新回到自由匹配池。')) {
         ensureStoreIntegrity();
         store.teams = [];
         store.players.forEach(p => p.inTeam = false);
         renderAll();
-        pushToCloud();
+        syncAndPull();
       }
     }
 
@@ -740,20 +868,30 @@
     function renderPlayers() {
       const container = document.getElementById('player-list');
       store.players.sort((a,b) => b.mmr - a.mmr);
-      const countText = `${store.players.length} 人`;
+      
+      const totalCount = store.players.length;
+      const countText = `${totalCount} 人`;
       document.getElementById('badge-players').innerText = countText;
       document.getElementById('player-total-count').innerText = countText;
+      document.getElementById('header-capacity').innerText = `${totalCount} / 100 人上限`;
+
+      const keyword = document.getElementById('search-player-input') ? document.getElementById('search-player-input').value.trim().toLowerCase() : '';
+      let displayList = store.players;
+      if (keyword) {
+        displayList = store.players.filter(p => p.name.toLowerCase().includes(keyword) || p.id.includes(keyword));
+      }
+
       container.innerHTML = '';
 
-      if (store.players.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-12">暂无选手报名</p>`;
+      if (displayList.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-12">暂无符合条件的选手</p>`;
         return;
       }
 
-      store.players.forEach((p, index) => {
+      displayList.forEach((p, index) => {
         const div = document.createElement('div');
         div.className = `w-full p-3 rounded-lg border flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition ${
-          p.inTeam ? 'bg-gray-950/40 border-gray-800/80 opacity-40 line-through' : 'bg-gray-950 border-gray-800 hover:border-red-500/50 shadow'
+          p.inTeam ? 'bg-gray-950/40 border-gray-800/80 opacity-50' : 'bg-gray-950 border-gray-800 hover:border-red-500/50 shadow'
         }`;
         div.innerHTML = `
           <div class="flex items-center gap-3">
@@ -762,7 +900,11 @@
               ${p.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <div class="font-bold text-xs text-gray-200">${p.name} <span class="text-red-400 font-mono ml-1">(${p.mmr} 分)</span></div>
+              <div class="font-bold text-xs text-gray-200">
+                ${p.name} 
+                <span class="text-red-400 font-mono ml-1">(${p.mmr} 分)</span>
+                ${p.inTeam ? '<span class="ml-2 text-[10px] bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded border border-amber-800">已组队</span>' : ''}
+              </div>
             </div>
           </div>
 
@@ -809,7 +951,12 @@
               <span class="text-[10px] bg-amber-950/60 text-amber-400 border border-amber-800/40 px-2 py-0.5 rounded font-bold">${m.assignedPos}号位</span>
               <strong class="text-gray-200 text-sm">${m.name}</strong>
             </span>
-            <span class="text-gray-400 font-mono text-xs">${m.mmr} 分</span>
+            <div class="flex items-center gap-3">
+              <span class="text-gray-400 font-mono text-xs">${m.mmr} 分</span>
+              <button onclick="removePlayerFromTeam(${t.id}, '${m.id}')" class="text-gray-500 hover:text-red-400 px-1.5 py-0.5 rounded bg-red-950/40 border border-red-900/50 transition text-[10px]" title="将该队员移出战队">
+                <i class="fa-solid fa-user-minus"></i> 移除
+              </button>
+            </div>
           </div>
         `).join('');
 
@@ -818,9 +965,14 @@
             <span class="font-bold text-amber-400 text-base flex items-center gap-2">
               <i class="fa-solid fa-paw text-amber-500"></i> ${t.name}
             </span>
-            <span class="text-xs text-gray-400">平均天梯: <strong class="text-amber-400 font-mono text-sm">${avgMmr}</strong></span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">平均: <strong class="text-amber-400 font-mono">${avgMmr}</strong></span>
+              <button onclick="openAddPlayerModal(${t.id})" class="text-[11px] bg-amber-950/80 border border-amber-800/60 text-amber-400 hover:bg-amber-900 px-2 py-1 rounded font-bold transition flex items-center gap-1" title="手动添加自由队员">
+                <i class="fa-solid fa-user-plus"></i> 添加
+              </button>
+            </div>
           </div>
-          <div class="space-y-0.5">${membersHTML}</div>
+          <div class="space-y-0.5">${membersHTML || '<p class="text-[11px] text-gray-500 py-3 text-center">暂无队员，请点击上方“添加”按钮手动选人</p>'}</div>
         `;
         container.appendChild(div);
       });
@@ -832,7 +984,7 @@
       store.bracket4.t = store.teams.slice(0, 4).map(t => t.name);
       championAlerted = false;
       renderBracket4();
-      pushToCloud();
+      syncAndPull();
     }
 
     function validateBO3Scores(scoreA, scoreB) {
@@ -849,7 +1001,7 @@
       store.bracket4.m2 = validateBO3Scores(document.getElementById('b4-m2-s1').value, document.getElementById('b4-m2-s2').value);
       store.bracket4.f = validateBO3Scores(document.getElementById('b4-f-s1').value, document.getElementById('b4-f-s2').value);
       renderBracket4();
-      pushToCloud();
+      syncAndPull();
     }
 
     function getDots(score) {
@@ -947,7 +1099,7 @@
       if (store.teams.length < 6) return alert('需要先在组队页面匹配出 6 支队伍！');
       store.match6.t = store.teams.slice(0, 6).map(t => t.name);
       renderMatch6();
-      pushToCloud();
+      syncAndPull();
     }
 
     function updateMatch6() {
@@ -956,7 +1108,7 @@
       store.match6.s2 = validateBO3Scores(document.getElementById('m6-s2-1').value, document.getElementById('m6-s2-2').value);
       store.match6.s3 = validateBO3Scores(document.getElementById('m6-s3-1').value, document.getElementById('m6-s3-2').value);
       renderMatch6();
-      pushToCloud();
+      syncAndPull();
     }
 
     function renderMatch6() {
